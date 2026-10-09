@@ -28,6 +28,14 @@ function fillTiles(list) {
   return out;
 }
 
+/** Promise helper that never rejects (works on older phones too) */
+function settle(promise) {
+  return promise.then(
+    (value) => ({ ok: true, value }),
+    () => ({ ok: false, value: null })
+  );
+}
+
 /** One scrolling row of equal-sized image tiles (direction: 'left' | 'right') */
 function MarqueeRow({ tiles, direction, onFail }) {
   if (tiles.length === 0) return null;
@@ -60,6 +68,7 @@ export default function IntermediatePage() {
   const { id } = useParams();
   const [link, setLink] = useState(null);
   const [ads, setAds] = useState(null);
+  const [related, setRelated] = useState([]);
   const [status, setStatus] = useState('loading'); // loading | ready | notfound
   const [failed, setFailed] = useState({});
   const [opened, setOpened] = useState(false);
@@ -70,18 +79,36 @@ export default function IntermediatePage() {
     setStatus('loading');
     setOpened(false);
 
-    Promise.allSettled([api.getPublicLink(id), api.getMonetagPublic()]).then(([linkResult, adsResult]) => {
-      if (cancelled) return;
+    Promise.all([settle(api.getPublicLink(id)), settle(api.getMonetagPublic())]).then(
+      ([linkResult, adsResult]) => {
+        if (cancelled) return;
 
-      if (adsResult.status === 'fulfilled') {
-        setAds(adsResult.value);
+        if (adsResult.ok) {
+          setAds(adsResult.value);
+        }
+        if (linkResult.ok) {
+          setLink(linkResult.value);
+          setStatus('ready');
+        } else {
+          setStatus('notfound');
+        }
       }
-      if (linkResult.status === 'fulfilled') {
-        setLink(linkResult.value);
-        setStatus('ready');
-      } else {
-        setStatus('notfound');
-      }
+    );
+
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
+
+  // Load other links for the "More to watch" section (never blocks the main page)
+  useEffect(() => {
+    let cancelled = false;
+    setRelated([]);
+
+    settle(api.getPublicLinks(id)).then((result) => {
+      if (cancelled || !result.ok) return;
+      const list = result.value && Array.isArray(result.value.links) ? result.value.links : [];
+      setRelated(list);
     });
 
     return () => {
@@ -176,6 +203,13 @@ export default function IntermediatePage() {
     window.open(directLink, '_blank', 'noopener,noreferrer');
   }
 
+  function handleMore() {
+    const section = document.getElementById('more');
+    if (section && section.scrollIntoView) {
+      section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }
+
   function handleLeave() {
     const tg = window.Telegram && window.Telegram.WebApp;
     if (tg && typeof tg.close === 'function' && tg.initData) {
@@ -216,35 +250,69 @@ export default function IntermediatePage() {
 
   return (
     <div className="ip-root">
-      {/* Top row: moves to the left */}
-      <MarqueeRow tiles={topTiles} direction="left" onFail={markFailed} />
+      {/* First screen: top row | card | bottom row */}
+      <div className="ip-hero">
+        {/* Top row: moves to the left */}
+        <MarqueeRow tiles={topTiles} direction="left" onFail={markFailed} />
 
-      {/* Middle: link card with the Watch now button */}
-      <main className="ip-center">
-        <div className="ip-card">
-          {link.imageUrl && (
-            <img className="ip-cover" src={link.imageUrl} alt="" referrerPolicy="no-referrer" />
-          )}
-          <h1 className="ip-title">{link.title}</h1>
-          {link.description && <p className="ip-desc">{link.description}</p>}
+        {/* Middle: link card with the Watch now button */}
+        <main className="ip-center">
+          <div className="ip-stack">
+            <div className="ip-card">
+              {link.imageUrl && (
+                <img className="ip-cover" src={link.imageUrl} alt="" referrerPolicy="no-referrer" />
+              )}
+              <h1 className="ip-title">{link.title}</h1>
+              {link.description && <p className="ip-desc">{link.description}</p>}
 
-          {directLink && (
-            <button type="button" className="ip-btn" onClick={handleWatch}>
-              {opened ? 'Watch again' : 'Watch now'}
-            </button>
-          )}
+              {directLink && (
+                <button type="button" className="ip-btn" onClick={handleWatch}>
+                  {opened ? 'Watch again' : 'Watch now'}
+                </button>
+              )}
 
-          <p className="ip-note">
-            Sponsored: tapping Watch now opens a sponsored page. Ads may also be shown on this page.
-          </p>
-          <button type="button" className="ip-leave" onClick={handleLeave}>
-            Leave page
-          </button>
-        </div>
-      </main>
+              <p className="ip-note">
+                Sponsored: tapping Watch now opens a sponsored page. Ads may also be shown on this page.
+              </p>
 
-      {/* Bottom row: moves to the right */}
-      <MarqueeRow tiles={bottomTiles} direction="right" onFail={markFailed} />
+              <div className="ip-links">
+                {related.length > 0 && (
+                  <button type="button" className="ip-leave" onClick={handleMore}>
+                    More to watch ↓
+                  </button>
+                )}
+                <button type="button" className="ip-leave" onClick={handleLeave}>
+                  Leave page
+                </button>
+              </div>
+            </div>
+          </div>
+        </main>
+
+        {/* Bottom row: moves to the right */}
+        <MarqueeRow tiles={bottomTiles} direction="right" onFail={markFailed} />
+      </div>
+
+      {/* Below the first screen: other links (each opens its own page with ads) */}
+      {related.length > 0 && (
+        <section className="ip-more" id="more">
+          <h2 className="ip-more-title">More to watch</h2>
+          <div className="ip-more-grid">
+            {related.map((item) => (
+              <a className="ip-more-item" key={item.id} href={item.path}>
+                <img
+                  src={item.thumbUrl}
+                  alt=""
+                  loading="lazy"
+                  decoding="async"
+                  referrerPolicy="no-referrer"
+                />
+                <span>{item.title}</span>
+              </a>
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
-      }
+}
