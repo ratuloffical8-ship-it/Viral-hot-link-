@@ -1,36 +1,28 @@
-const express = require('express');
-const multer = require('multer');
-const { requireAdmin } = require('../middleware/telegramAuth');
-const { asyncHandler, httpError } = require('../utils/helpers');
-const {
-  createLink,
-  listLinks,
-  deleteLink,
-  getPublicLink,
-} = require('../controllers/linksController');
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
 
-const router = express.Router();
+// In development, the React app runs on :5173 and forwards
+// API / share / image / ping requests to the Express server on :5000.
+const BACKEND = 'http://localhost:5000';
 
-// Mounted at /api/links in server.js
-
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024, files: 1 },
-  fileFilter: (req, file, cb) => {
-    if (/^image\/(jpeg|png|webp|gif)$/i.test(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(httpError(400, 'Only JPG, PNG, WEBP or GIF images are allowed.'));
-    }
+export default defineConfig({
+  plugins: [react()],
+  server: {
+    port: 5173,
+    proxy: {
+      '/api': { target: BACKEND, changeOrigin: true },
+      '/ping': { target: BACKEND, changeOrigin: true },
+      '/v': { target: BACKEND, changeOrigin: true },
+      '/img': { target: BACKEND, changeOrigin: true },
+    },
+  },
+  build: {
+    outDir: 'dist',
+    emptyOutDir: true,
+    sourcemap: false,
+    chunkSizeWarningLimit: 800,
+    // Older phones (older Android WebView / Chrome) can show a blank page with
+    // the default modern build, so build for an older JavaScript level.
+    target: ['es2017', 'chrome64', 'safari12'],
   },
 });
-
-// PUBLIC: link info for the Intermediate Page
-router.get('/public/:id', asyncHandler(getPublicLink));
-
-// ADMIN ONLY below
-router.get('/', requireAdmin, asyncHandler(listLinks));
-router.post('/', requireAdmin, upload.single('image'), asyncHandler(createLink));
-router.delete('/:id', requireAdmin, asyncHandler(deleteLink));
-
-module.exports = router;
