@@ -15,14 +15,23 @@ function cleanText(value, maxLength) {
     .slice(0, maxLength);
 }
 
+/** Image URLs are built from the current site URL, never stored in the database */
+function imageUrlFor(baseUrl, id) {
+  return `${baseUrl}/img/${id}.jpg`;
+}
+
+function thumbUrlFor(baseUrl, id) {
+  return `${baseUrl}/img/${id}_t.jpg`;
+}
+
 /** Shape a stored link for the frontend (hides internal fields) */
 function toClient(link, baseUrl) {
   return {
     id: link.id,
     title: link.title,
     description: link.description || '',
-    imageUrl: link.imageUrl,
-    thumbUrl: link.thumbUrl || link.imageUrl,
+    imageUrl: imageUrlFor(baseUrl, link.id),
+    thumbUrl: thumbUrlFor(baseUrl, link.id),
     clicks: Number(link.clicks) || 0,
     createdAt: link.createdAt || 0,
     shortUrl: `${baseUrl}/v/${link.id}`,
@@ -52,8 +61,6 @@ async function createLink(req, res) {
       id,
       title,
       description,
-      imageUrl: `${baseUrl}/img/${id}.jpg`,
-      thumbUrl: `${baseUrl}/img/${id}_t.jpg`,
       imageWidth: processed.width,
       imageHeight: processed.height,
       clicks: 0,
@@ -97,7 +104,8 @@ async function listLinks(req, res) {
 
   const baseUrl = getBaseUrl(req);
   const links = Object.values(linksSnap.val() || {})
-    .filter(Boolean)
+    // skip broken nodes (for example a leftover { clicks } without id/title)
+    .filter((link) => link && link.id && link.title)
     .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
     .map((link) => toClient(link, baseUrl));
 
@@ -145,7 +153,7 @@ async function getPublicLink(req, res) {
 
   const snapshot = await ref(`links/${id}`).once('value');
   const link = snapshot.val();
-  if (!link) {
+  if (!link || !link.title) {
     throw httpError(404, 'Link not found.');
   }
 
@@ -154,12 +162,17 @@ async function getPublicLink(req, res) {
     id: link.id,
     title: link.title,
     description: link.description || '',
-    imageUrl: link.imageUrl,
+    imageUrl: imageUrlFor(getBaseUrl(req), link.id),
   });
 }
 
 /** Count one real visit (called by the /v/:id route, never for bots) */
 async function recordClick(id) {
+  // Make sure the link still exists, so a deleted link never gets a broken
+  // "links/<id>/clicks" node created by the multi-path update below.
+  const exists = await ref(`links/${id}/title`).once('value');
+  if (!exists.exists()) return;
+
   const today = getDateKey();
   await db.ref().update({
     [`links/${id}/clicks`]: increment(1),
