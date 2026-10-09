@@ -3,15 +3,54 @@ import { useParams } from 'react-router-dom';
 import { api } from '../api.js';
 import './IntermediatePage.css';
 
-const SLIDE_INTERVAL_MS = 5000;
+const SECONDS_PER_IMAGE = 1.3; // one new image arrives every 1.3 seconds
+const ROW_SIZE = 10; // images per row
+const MIN_TILES = 8; // repeat small lists so a row always fills the screen width
 const DOMAIN_REGEX = /^(?!-)[a-z0-9-]+(\.[a-z0-9-]+)+$/i;
+
+/** Repeat a short list until it has enough tiles to fill the screen */
+function fillTiles(list) {
+  if (list.length === 0) return [];
+  const out = [];
+  while (out.length < MIN_TILES) {
+    out.push(...list);
+  }
+  return out;
+}
+
+/** One scrolling row of equal-sized image tiles (direction: 'left' | 'right') */
+function MarqueeRow({ tiles, direction, onFail }) {
+  if (tiles.length === 0) return null;
+
+  // The list is shown twice, so the loop restarts without any visible jump
+  const loop = [...tiles, ...tiles];
+  const duration = `${(tiles.length * SECONDS_PER_IMAGE).toFixed(2)}s`;
+
+  return (
+    <div className="ip-row" aria-hidden="true">
+      <div className={`ip-track ip-track-${direction}`} style={{ animationDuration: duration }}>
+        {loop.map((item, i) => (
+          <div className="ip-tile" key={`${i}-${item.src}`}>
+            <img
+              src={item.src}
+              alt=""
+              decoding="async"
+              draggable="false"
+              referrerPolicy="no-referrer"
+              onError={() => onFail(item.index)}
+            />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export default function IntermediatePage() {
   const { id } = useParams();
   const [link, setLink] = useState(null);
   const [ads, setAds] = useState(null);
   const [status, setStatus] = useState('loading'); // loading | ready | notfound
-  const [active, setActive] = useState(0);
   const [failed, setFailed] = useState({});
   const [opened, setOpened] = useState(false);
 
@@ -89,20 +128,22 @@ export default function IntermediatePage() {
     };
   }, [status, ads]);
 
-  // Background images that loaded successfully
-  const images = useMemo(() => {
-    const all = (ads && ads.backgroundImages) || [];
-    return all.map((src, index) => ({ src, index })).filter((item) => !failed[item.index]);
+  // Top row = first 10 images. Bottom row = images 11-20 when they exist,
+  // otherwise the same images in reverse order.
+  const { topTiles, bottomTiles } = useMemo(() => {
+    const all = ((ads && ads.backgroundImages) || [])
+      .map((src, index) => ({ src, index }))
+      .filter((item) => !failed[item.index]);
+
+    const top = all.slice(0, ROW_SIZE);
+    const bottom = all.length > ROW_SIZE ? all.slice(ROW_SIZE, ROW_SIZE * 2) : [...top].reverse();
+
+    return { topTiles: fillTiles(top), bottomTiles: fillTiles(bottom) };
   }, [ads, failed]);
 
-  // Auto-slide (one image after another)
-  useEffect(() => {
-    if (images.length < 2) return undefined;
-    const timer = setInterval(() => {
-      setActive((current) => (current + 1) % images.length);
-    }, SLIDE_INTERVAL_MS);
-    return () => clearInterval(timer);
-  }, [images.length]);
+  function markFailed(index) {
+    setFailed((prev) => (prev[index] ? prev : { ...prev, [index]: true }));
+  }
 
   function handleWatch() {
     if (!directLink) return;
@@ -151,24 +192,10 @@ export default function IntermediatePage() {
 
   return (
     <div className="ip-root">
-      {/* Sliding background */}
-      <div className="ip-bg" aria-hidden="true">
-        {images.map((item, position) => (
-          <img
-            key={item.src}
-            className={`ip-slide${position === active % Math.max(images.length, 1) ? ' is-active' : ''}`}
-            src={item.src}
-            alt=""
-            loading={position === 0 ? 'eager' : 'lazy'}
-            decoding="async"
-            referrerPolicy="no-referrer"
-            onError={() => setFailed((prev) => ({ ...prev, [item.index]: true }))}
-          />
-        ))}
-        <div className="ip-overlay" />
-      </div>
+      {/* Top row: moves to the left */}
+      <MarqueeRow tiles={topTiles} direction="left" onFail={markFailed} />
 
-      {/* Foreground content */}
+      {/* Middle: link card with the Watch now button */}
       <main className="ip-center">
         <div className="ip-card">
           {link.imageUrl && (
@@ -191,6 +218,9 @@ export default function IntermediatePage() {
           </button>
         </div>
       </main>
+
+      {/* Bottom row: moves to the right */}
+      <MarqueeRow tiles={bottomTiles} direction="right" onFail={markFailed} />
     </div>
   );
-  }
+    }
