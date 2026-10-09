@@ -1,0 +1,160 @@
+.ip-root {
+  position: relative;
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow: hidden;
+  background: #020617;
+  color: #f8fafc;
+}
+
+/* ---------- Background slider ---------- */
+.ip-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+}
+
+.ip-slide {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transform: scale(1.04);
+  transition: opacity 1.4s ease-in-out, transform 8s ease-out;
+  will-change: opacity, transform;
+}
+
+.ip-slide.is-active {
+  opacity: 1;
+  transform: scale(1.12);
+}
+
+.ip-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(2, 6, 23, 0.55) 0%, rgba(2, 6, 23, 0.35) 45%, rgba(2, 6, 23, 0.75) 100%);
+}
+
+/* ---------- Foreground ---------- */
+.ip-center {
+  position: relative;
+  z-index: 1;
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px 16px;
+}
+
+.ip-card {
+  width: 100%;
+  max-width: 420px;
+  text-align: center;
+  padding: 22px 20px 18px;
+  border-radius: 22px;
+  background: rgba(15, 23, 42, 0.58);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+  animation: ip-rise 0.6s ease-out both;
+}
+
+.ip-cover {
+  display: block;
+  width: 100%;
+  max-height: 240px;
+  object-fit: cover;
+  border-radius: 14px;
+  margin-bottom: 16px;
+}
+
+.ip-title {
+  margin: 0 0 8px;
+  font-size: 22px;
+  line-height: 1.3;
+  font-weight: 800;
+  word-break: break-word;
+}
+
+.ip-desc {
+  margin: 0 0 16px;
+  color: #cbd5e1;
+  font-size: 15px;
+  word-break: break-word;
+}
+
+.ip-btn {
+  display: block;
+  width: 100%;
+  margin: 4px 0 14px;
+  padding: 13px 16px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  text-decoration: none;
+  box-shadow: 0 8px 24px rgba(99, 102, 241, 0.45);
+}
+
+.ip-btn:active {
+  transform: scale(0.98);
+}
+
+.ip-note {
+  margin: 0 0 6px;
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.ip-leave {
+  background: none;
+  border: 0;
+  padding: 6px 10px;
+  color: #cbd5e1;
+  font-size: 13px;
+  font-family: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.ip-spinner {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 4px solid rgba(255, 255, 255, 0.18);
+  border-top-color: #818cf8;
+  animation: ip-spin 0.8s linear infinite;
+}
+
+@keyframes ip-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes ip-rise {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ip-slide,
+  .ip-card {
+    transition: opacity 0.3s;
+    animation: none;
+  }
+  .ip-slide.is-active {
+    transform: none;
+  }
+    }
