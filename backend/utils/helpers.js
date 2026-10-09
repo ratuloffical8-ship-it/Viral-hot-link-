@@ -23,8 +23,11 @@ function escapeHtml(value) {
     .replace(/'/g, '&#39;');
 }
 
+// Link-preview bots and crawlers. Names that real in-app browsers also use
+// (Viber, Line, Snapchat, Signal) are left out on purpose, so real visitors
+// from those apps are still counted as visitors.
 const BOT_REGEX =
-  /facebookexternalhit|facebot|whatsapp|telegrambot|twitterbot|slackbot|linkedinbot|discordbot|skypeuripreview|pinterest|googlebot|bingbot|applebot|embedly|vkshare|redditbot|bot\b|crawler|spider|preview|curl|wget/i;
+  /facebookexternalhit|facebot|whatsapp|telegrambot|twitterbot|slackbot|linkedinbot|discordbot|skypeuripreview|pinterest|googlebot|bingbot|applebot|embedly|vkshare|redditbot|duckduckbot|iframely|mastodon|bluesky|cardyb|yandex|baiduspider|python-requests|go-http-client|bot\b|crawler|spider|preview|curl|wget/i;
 
 /** True if the User-Agent looks like a link-preview bot or crawler */
 function isBot(userAgent) {
