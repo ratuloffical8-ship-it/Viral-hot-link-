@@ -6,7 +6,7 @@ const CACHE_TTL_MS = 30 * 1000;
 
 let cache = { value: null, expiresAt: 0 };
 
-/** Defaults come from Render environment variables */
+/** Defaults come from Render environment variables (used only until settings are saved once) */
 function envDefaults() {
   return {
     enabled: true,
@@ -52,14 +52,22 @@ function sanitizeMonetagInput(input) {
   };
 }
 
-/** Saved settings override env defaults (only for non-empty values) */
+/**
+ * Once settings have been saved from the dashboard, the saved values win,
+ * even when a field was cleared on purpose (empty string).
+ * Env values are only the starting point before the first save.
+ */
 function mergeSettings(defaults, saved) {
   const merged = { ...defaults };
   if (!saved || typeof saved !== 'object') return merged;
 
   ['domain', 'zoneId', 'metaContent', 'directLink'].forEach((key) => {
-    if (typeof saved[key] === 'string' && saved[key].trim() !== '') {
+    if (typeof saved[key] === 'string') {
       merged[key] = saved[key].trim();
+    } else if (saved[key] === undefined || saved[key] === null) {
+      // Firebase drops empty values in some cases: treat a saved record with a
+      // missing field as "cleared", not as "use env".
+      merged[key] = '';
     }
   });
   if (typeof saved.enabled === 'boolean') merged.enabled = saved.enabled;
