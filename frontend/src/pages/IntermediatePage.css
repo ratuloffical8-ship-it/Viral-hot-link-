@@ -87,27 +87,40 @@
   word-break: break-word;
 }
 
+/* "Watch now" is a <button>, so reset the native button look */
 .ip-btn {
   display: block;
   width: 100%;
   margin: 4px 0 14px;
-  padding: 13px 16px;
+  padding: 14px 16px;
+  border: 0;
   border-radius: 12px;
   background: linear-gradient(135deg, #6366f1, #8b5cf6);
   color: #fff;
-  font-size: 16px;
+  font-family: inherit;
+  font-size: 17px;
   font-weight: 700;
   text-decoration: none;
+  cursor: pointer;
   box-shadow: 0 8px 24px rgba(99, 102, 241, 0.45);
+  -webkit-appearance: none;
+  appearance: none;
 }
 
 .ip-btn:active {
   transform: scale(0.98);
 }
 
+.ip-btn:focus-visible,
+.ip-leave:focus-visible {
+  outline: 3px solid #38bdf8;
+  outline-offset: 2px;
+}
+
 .ip-note {
   margin: 0 0 6px;
   font-size: 12px;
+  line-height: 1.4;
   color: #94a3b8;
 }
 
@@ -157,4 +170,4 @@
   .ip-slide.is-active {
     transform: none;
   }
-    }
+}
