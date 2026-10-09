@@ -6,7 +6,17 @@ import './IntermediatePage.css';
 const SECONDS_PER_IMAGE = 1.3; // one new image arrives every 1.3 seconds
 const ROW_SIZE = 10; // images per row
 const MIN_TILES = 8; // repeat small lists so a row always fills the screen width
-const DOMAIN_REGEX = /^(?!-)[a-z0-9-]+(\.[a-z0-9-]+)+$/i;
+
+// Monetag ad tags for viral-hot-link.onrender.com (zone IDs come from the Monetag dashboard).
+// They are loaded automatically as soon as the page opens, no button tap needed.
+const AD_TAGS = [
+  { zone: '11992368', src: 'https://n6wxm.com/vignette.min.js' }, // Vignette banner
+  { zone: '11992364', src: 'https://nap5k.com/tag.min.js' }, // In-Page Push
+  { zone: '11992351', src: 'https://al5sm.com/tag.min.js' }, // OnClick (Popunder)
+];
+
+// Push notifications tag (works together with /sw.js on this site)
+const PUSH_TAG = { zone: '11992361', src: 'https://5gvci.com/act/files/tag.min.js?z=11992361' };
 
 /** Repeat a short list until it has enough tiles to fill the screen */
 function fillTiles(list) {
@@ -92,7 +102,7 @@ export default function IntermediatePage() {
     };
   }, [link]);
 
-  // Monetag: load ads ONLY when the link exists and ads are enabled
+  // Monetag: load every ad tag ONLY when the link exists and ads are enabled
   useEffect(() => {
     if (status !== 'ready' || !ads) return undefined;
 
@@ -107,24 +117,38 @@ export default function IntermediatePage() {
       return undefined;
     }
 
-    const domain = String(ads.domain || '').trim();
-    const zoneId = String(ads.zoneId || '').trim();
-    if (!DOMAIN_REGEX.test(domain) || !/^\d{3,12}$/.test(zoneId)) return undefined;
+    const parent = document.body || document.documentElement;
+    const added = [];
 
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js').catch(() => {
-        // Service worker is optional; ads can still load via the zone script
-      });
+    AD_TAGS.forEach((tag) => {
+      if (document.querySelector(`script[data-ip-zone="${tag.zone}"]`)) return;
+      const script = document.createElement('script');
+      script.dataset.zone = tag.zone;
+      script.dataset.ipZone = tag.zone;
+      script.src = tag.src;
+      parent.appendChild(script);
+      added.push(script);
+    });
+
+    if (!document.querySelector(`script[data-ip-zone="${PUSH_TAG.zone}"]`)) {
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/sw.js').catch(() => {
+          // Service worker is optional; the other ad formats still work
+        });
+      }
+      const push = document.createElement('script');
+      push.dataset.ipZone = PUSH_TAG.zone;
+      push.src = PUSH_TAG.src;
+      push.async = true;
+      push.setAttribute('data-cfasync', 'false');
+      parent.appendChild(push);
+      added.push(push);
     }
 
-    const script = document.createElement('script');
-    script.src = `https://${domain}/act/files/tag.min.js?z=${encodeURIComponent(zoneId)}`;
-    script.async = true;
-    script.setAttribute('data-cfasync', 'false');
-    document.body.appendChild(script);
-
     return () => {
-      if (script.parentNode) script.parentNode.removeChild(script);
+      added.forEach((node) => {
+        if (node.parentNode) node.parentNode.removeChild(node);
+      });
     };
   }, [status, ads]);
 
@@ -223,4 +247,4 @@ export default function IntermediatePage() {
       <MarqueeRow tiles={bottomTiles} direction="right" onFail={markFailed} />
     </div>
   );
-    }
+      }
