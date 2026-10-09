@@ -8,7 +8,7 @@ services:
     healthCheckPath: /ping
     envVars:
       - key: NODE_VERSION
-        value: 20
+        value: "20"
       - key: NODE_ENV
         value: production
       - key: APP_BASE_URL
@@ -21,8 +21,6 @@ services:
         sync: false
       - key: FIREBASE_SERVICE_ACCOUNT_BASE64
         sync: false
-      - key: IMGBB_API_KEY
-        sync: false
       - key: GITHUB_USER
         sync: false
       - key: GITHUB_REPO
@@ -32,18 +30,18 @@ services:
       - key: GITHUB_IMAGES_PATH
         value: images
       - key: BACKGROUND_IMAGE_COUNT
-        value: 10
+        value: "10"
       - key: BACKGROUND_IMAGE_EXT
         value: jpg
       - key: MONETAG_DOMAIN
         value: 3nbf4.com
       - key: MONETAG_ZONE_ID
-        value: 11984257
+        value: "11984257"
       - key: MONETAG_META_CONTENT
         value: c5d47a0233493b07fc81743d5b51c253
       - key: MONETAG_DIRECT_LINK
         value: https://uplcm.com/4/11984259
       - key: KEEP_ALIVE_ENABLED
-        value: true
+        value: "true"
       - key: KEEP_ALIVE_INTERVAL_MINUTES
-        value: 3
+        value: "3"
