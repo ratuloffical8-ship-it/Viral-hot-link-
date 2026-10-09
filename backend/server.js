@@ -14,6 +14,7 @@ const pingRoutes = require('./routes/ping');
 const linksRoutes = require('./routes/links');
 const monetagRoutes = require('./routes/monetag');
 const shareRoutes = require('./routes/share');
+const imgRoutes = require('./routes/img');
 const { getMonetagSettings } = require('./utils/settings');
 const { escapeHtml } = require('./utils/helpers');
 const { notFoundApi, errorHandler } = require('./middleware/errorHandler');
@@ -69,6 +70,7 @@ app.use('/api/links', linksRoutes);
 app.use('/api/monetag', monetagRoutes);
 app.use('/api', notFoundApi);
 app.use('/v', shareLimiter, shareRoutes);
+app.use('/img', imgRoutes);
 
 // ---------- Frontend (React build) ----------
 let indexCache = null;
@@ -110,7 +112,7 @@ async function sendIndex(req, res, next) {
 }
 
 app.use(express.static(distPath, { index: false, maxAge: '1h' }));
-app.get(/^\/(?!api(\/|$)|v\/|ping).*/, sendIndex);
+app.get(/^\/(?!api(\/|$)|v\/|img\/|ping).*/, sendIndex);
 
 // ---------- Errors ----------
 app.use(errorHandler);
