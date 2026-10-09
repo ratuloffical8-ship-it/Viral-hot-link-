@@ -2,6 +2,10 @@ const sharp = require('sharp');
 const { ref } = require('./firebase');
 const { httpError } = require('./helpers');
 
+// Preview card size used by WhatsApp / Facebook / Telegram (1.91 : 1)
+const PREVIEW_WIDTH = 1200;
+const PREVIEW_HEIGHT = 630;
+
 // WhatsApp skips the preview image when it is too heavy (roughly > 300 KB)
 const MAX_PREVIEW_BYTES = 280 * 1024;
 const QUALITIES = [72, 62, 52, 42];
@@ -25,16 +29,34 @@ function cacheSet(key, value) {
   }
 }
 
-/** Resize + compress an uploaded image. Returns base64 strings ready to store. */
+/**
+ * Resize + compress an uploaded image. Returns base64 strings ready to store.
+ *
+ * The main image is always exactly 1200x630, so WhatsApp/Facebook show the big
+ * preview card. The whole original image is kept visible (never cropped):
+ * it sits in the centre, over a blurred and darkened copy of itself.
+ */
 async function processImage(buffer) {
   try {
     const base = () => sharp(buffer, { failOn: 'none' }).rotate().flatten({ background: '#ffffff' });
 
+    const background = await base()
+      .resize(PREVIEW_WIDTH, PREVIEW_HEIGHT, { fit: 'cover' })
+      .blur(30)
+      .modulate({ brightness: 0.7 })
+      .jpeg({ quality: 80 })
+      .toBuffer();
+
+    const foreground = await base()
+      .resize({ width: PREVIEW_WIDTH, height: PREVIEW_HEIGHT, fit: 'inside', withoutEnlargement: true })
+      .jpeg({ quality: 92 })
+      .toBuffer();
+
     let main = null;
     for (let i = 0; i < QUALITIES.length; i += 1) {
       // eslint-disable-next-line no-await-in-loop
-      main = await base()
-        .resize({ width: 1200, height: 630, fit: 'inside', withoutEnlargement: true })
+      main = await sharp(background)
+        .composite([{ input: foreground, gravity: 'centre' }])
         .jpeg({ quality: QUALITIES[i], mozjpeg: true })
         .toBuffer({ resolveWithObject: true });
       if (main.data.length <= MAX_PREVIEW_BYTES) break;
