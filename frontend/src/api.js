@@ -60,6 +60,8 @@ export const api = {
 
   // Public (Intermediate Page)
   getPublicLink: (id) => request(`/api/links/public/${encodeURIComponent(id)}`, { auth: false }),
+  getPublicLinks: (excludeId) =>
+    request(`/api/links/public?limit=6&exclude=${encodeURIComponent(excludeId || '')}`, { auth: false }),
   getMonetagPublic: () => request('/api/monetag/public', { auth: false }),
 };
 
@@ -88,4 +90,4 @@ export async function copyText(text) {
   } catch (err) {
     return false;
   }
-                 }
+        }
