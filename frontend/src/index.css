@@ -339,7 +339,9 @@ h3 {
   border-top: 1px solid var(--border);
 }
 
-.link-item:first-child {
+/* The first link sits right after the header row, so no top border for it */
+.link-item:first-child,
+.row + .link-item {
   border-top: 0;
   padding-top: 0;
 }
