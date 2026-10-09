@@ -13,10 +13,13 @@ export default function IntermediatePage() {
   const [status, setStatus] = useState('loading'); // loading | ready | notfound
   const [active, setActive] = useState(0);
   const [failed, setFailed] = useState({});
+  const [opened, setOpened] = useState(false);
 
   // Load link info + Monetag settings
   useEffect(() => {
     let cancelled = false;
+    setStatus('loading');
+    setOpened(false);
 
     Promise.allSettled([api.getPublicLink(id), api.getMonetagPublic()]).then(([linkResult, adsResult]) => {
       if (cancelled) return;
@@ -50,9 +53,20 @@ export default function IntermediatePage() {
     };
   }, [link]);
 
-  // Load Monetag service worker + zone script
+  // Monetag: load ads ONLY when the link exists and ads are enabled
   useEffect(() => {
-    if (!ads || !ads.enabled) return undefined;
+    if (status !== 'ready' || !ads) return undefined;
+
+    if (!ads.enabled) {
+      // Ads turned off from the dashboard: remove any old service worker
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker
+          .getRegistrations()
+          .then((list) => list.forEach((reg) => reg.unregister()))
+          .catch(() => {});
+      }
+      return undefined;
+    }
 
     const domain = String(ads.domain || '').trim();
     const zoneId = String(ads.zoneId || '').trim();
@@ -73,7 +87,7 @@ export default function IntermediatePage() {
     return () => {
       if (script.parentNode) script.parentNode.removeChild(script);
     };
-  }, [ads]);
+  }, [status, ads]);
 
   // Background images that loaded successfully
   const images = useMemo(() => {
@@ -81,7 +95,7 @@ export default function IntermediatePage() {
     return all.map((src, index) => ({ src, index })).filter((item) => !failed[item.index]);
   }, [ads, failed]);
 
-  // Auto-slide
+  // Auto-slide (one image after another)
   useEffect(() => {
     if (images.length < 2) return undefined;
     const timer = setInterval(() => {
@@ -89,6 +103,13 @@ export default function IntermediatePage() {
     }, SLIDE_INTERVAL_MS);
     return () => clearInterval(timer);
   }, [images.length]);
+
+  function handleWatch() {
+    if (!directLink) return;
+    setOpened(true);
+    // Opens in a new tab so the visitor keeps this page
+    window.open(directLink, '_blank', 'noopener,noreferrer');
+  }
 
   function handleLeave() {
     const tg = window.Telegram && window.Telegram.WebApp;
@@ -157,12 +178,14 @@ export default function IntermediatePage() {
           {link.description && <p className="ip-desc">{link.description}</p>}
 
           {directLink && (
-            <a className="ip-btn" href={directLink} target="_blank" rel="noopener noreferrer sponsored">
-              Continue
-            </a>
+            <button type="button" className="ip-btn" onClick={handleWatch}>
+              {opened ? 'Watch again' : 'Watch now'}
+            </button>
           )}
 
-          <p className="ip-note">Sponsored ads may be shown on this page.</p>
+          <p className="ip-note">
+            Sponsored: tapping Watch now opens a sponsored page. Ads may also be shown on this page.
+          </p>
           <button type="button" className="ip-leave" onClick={handleLeave}>
             Leave page
           </button>
@@ -170,4 +193,4 @@ export default function IntermediatePage() {
       </main>
     </div>
   );
-         }
+  }
