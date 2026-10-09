@@ -63,6 +63,15 @@ const shareLimiter = rateLimit({
   message: 'Too many requests. Please slow down.',
 });
 
+// Images are cached for a year by browsers, so this only stops abuse
+const imgLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: 'Too many requests. Please slow down.',
+});
+
 // ---------- Routes ----------
 app.use('/ping', pingRoutes);
 app.use('/api', apiLimiter);
@@ -70,7 +79,7 @@ app.use('/api/links', linksRoutes);
 app.use('/api/monetag', monetagRoutes);
 app.use('/api', notFoundApi);
 app.use('/v', shareLimiter, shareRoutes);
-app.use('/img', imgRoutes);
+app.use('/img', imgLimiter, imgRoutes);
 
 // ---------- Frontend (React build) ----------
 let indexCache = null;
@@ -88,7 +97,7 @@ async function sendIndex(req, res, next) {
     const html = getIndexHtml();
     if (!html) {
       return res
-        .status(200)
+        .status(503)
         .type('text/plain')
         .send('API is running. Frontend build not found. Run "npm run build" inside the frontend folder.');
     }
@@ -111,8 +120,19 @@ async function sendIndex(req, res, next) {
   }
 }
 
-app.use(express.static(distPath, { index: false, maxAge: '1h' }));
-app.get(/^\/(?!api(\/|$)|v\/|img\/|ping).*/, sendIndex);
+app.use(
+  express.static(distPath, {
+    index: false,
+    maxAge: '1h',
+    setHeaders: (res, filePath) => {
+      // The service worker must always be re-checked by the browser
+      if (path.basename(filePath) === 'sw.js') {
+        res.setHeader('Cache-Control', 'no-cache');
+      }
+    },
+  })
+);
+app.get(/^\/(?!api(\/|$)|v\/|img\/|ping(\/|$)).*/, sendIndex);
 
 // ---------- Errors ----------
 app.use(errorHandler);
