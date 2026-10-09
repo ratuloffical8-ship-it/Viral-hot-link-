@@ -2,15 +2,43 @@ const sharp = require('sharp');
 const { ref } = require('./firebase');
 const { httpError } = require('./helpers');
 
+// WhatsApp skips the preview image when it is too heavy (roughly > 300 KB)
+const MAX_PREVIEW_BYTES = 280 * 1024;
+const QUALITIES = [72, 62, 52, 42];
+
+// Small in-memory cache so every request does not hit the database
+const CACHE_LIMIT = 40;
+const cache = new Map();
+
+function cacheGet(key) {
+  if (!cache.has(key)) return null;
+  const value = cache.get(key);
+  cache.delete(key);
+  cache.set(key, value); // mark as recently used
+  return value;
+}
+
+function cacheSet(key, value) {
+  cache.set(key, value);
+  while (cache.size > CACHE_LIMIT) {
+    cache.delete(cache.keys().next().value);
+  }
+}
+
 /** Resize + compress an uploaded image. Returns base64 strings ready to store. */
 async function processImage(buffer) {
   try {
     const base = () => sharp(buffer, { failOn: 'none' }).rotate().flatten({ background: '#ffffff' });
 
-    const main = await base()
-      .resize({ width: 1200, height: 1200, fit: 'inside', withoutEnlargement: true })
-      .jpeg({ quality: 80, mozjpeg: true })
-      .toBuffer({ resolveWithObject: true });
+    let main = null;
+    for (let i = 0; i < QUALITIES.length; i += 1) {
+      // eslint-disable-next-line no-await-in-loop
+      main = await base()
+        .resize({ width: 1200, height: 630, fit: 'inside', withoutEnlargement: true })
+        .jpeg({ quality: QUALITIES[i], mozjpeg: true })
+        .toBuffer({ resolveWithObject: true });
+      if (main.data.length <= MAX_PREVIEW_BYTES) break;
+    }
 
     const thumb = await base()
       .resize(240, 240, { fit: 'cover' })
@@ -39,12 +67,24 @@ async function storeImage(id, processed) {
 
 /** variant: 'main' | 'thumb'. Returns a Buffer or null. */
 async function loadImage(id, variant = 'main') {
-  const snapshot = await ref(`images/${id}/${variant === 'thumb' ? 'thumb' : 'main'}`).once('value');
+  const field = variant === 'thumb' ? 'thumb' : 'main';
+  const key = `${id}:${field}`;
+
+  const cached = cacheGet(key);
+  if (cached) return cached;
+
+  const snapshot = await ref(`images/${id}/${field}`).once('value');
   const data = snapshot.val();
-  return data ? Buffer.from(data, 'base64') : null;
+  if (!data) return null;
+
+  const buffer = Buffer.from(data, 'base64');
+  cacheSet(key, buffer);
+  return buffer;
 }
 
 async function deleteImage(id) {
+  cache.delete(`${id}:main`);
+  cache.delete(`${id}:thumb`);
   await ref(`images/${id}`).remove();
 }
 
