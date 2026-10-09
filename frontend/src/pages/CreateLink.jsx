@@ -28,14 +28,17 @@ export default function CreateLink() {
   }, [file]);
 
   function handleFile(event) {
-    const chosen = event.target.files && event.target.files[0];
+    const input = event.target;
+    const chosen = input.files && input.files[0];
     if (!chosen) return;
 
     if (!ALLOWED.includes(chosen.type)) {
+      input.value = '';
       setError('Only JPG, PNG, WEBP or GIF images are allowed.');
       return;
     }
     if (chosen.size > MAX_SIZE) {
+      input.value = '';
       setError('Image is too large. Maximum size is 10 MB.');
       return;
     }
@@ -69,6 +72,7 @@ export default function CreateLink() {
     } finally {
       setLoading(false);
     }
+    return undefined;
   }
 
   async function handleCopy() {
@@ -117,7 +121,7 @@ export default function CreateLink() {
         {error && <div className="notice error">{error}</div>}
 
         <div className="field">
-          <label>Image</label>
+          <label htmlFor="image-input">Image</label>
           <label className="upload-box" htmlFor="image-input">
             {preview ? (
               <img src={preview} alt="Selected preview" />
@@ -169,4 +173,4 @@ export default function CreateLink() {
       </form>
     </div>
   );
-  }
+          }
