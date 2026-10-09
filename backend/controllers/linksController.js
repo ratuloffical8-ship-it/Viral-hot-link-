@@ -1,6 +1,5 @@
-const { db, ref } = require('../utils/firebase');
-const { increment } = require('../utils/firebase');
-const { uploadToImgBB } = require('../utils/imgbb');
+const { db, ref, increment } = require('../utils/firebase');
+const { processImage, storeImage, deleteImage } = require('../utils/imageStore');
 const { generateId, getDateKey, getBaseUrl, httpError } = require('../utils/helpers');
 
 const ID_REGEX = /^[a-z0-9]{4,12}$/;
@@ -42,12 +41,9 @@ async function createLink(req, res) {
     throw httpError(400, 'Caption / title is required.');
   }
 
-  let image;
-  try {
-    image = await uploadToImgBB(req.file.buffer, req.file.originalname);
-  } catch (err) {
-    throw httpError(502, err.message);
-  }
+  // Resize + compress first, so a bad image fails before anything is saved
+  const processed = await processImage(req.file.buffer);
+  const baseUrl = getBaseUrl(req);
 
   let created = null;
   for (let attempt = 0; attempt < 5 && !created; attempt += 1) {
@@ -56,11 +52,10 @@ async function createLink(req, res) {
       id,
       title,
       description,
-      imageUrl: image.url,
-      thumbUrl: image.thumbUrl,
-      deleteUrl: image.deleteUrl,
-      imageWidth: image.width,
-      imageHeight: image.height,
+      imageUrl: `${baseUrl}/img/${id}.jpg`,
+      thumbUrl: `${baseUrl}/img/${id}_t.jpg`,
+      imageWidth: processed.width,
+      imageHeight: processed.height,
       clicks: 0,
       createdAt: Date.now(),
       createdBy: req.admin.id,
@@ -77,9 +72,16 @@ async function createLink(req, res) {
     throw httpError(500, 'Could not generate a unique link. Please try again.');
   }
 
+  try {
+    await storeImage(created.id, processed);
+  } catch (err) {
+    await ref(`links/${created.id}`).remove();
+    throw httpError(500, 'Could not save the image. Please try again.');
+  }
+
   res.status(201).json({
     message: 'Link created.',
-    link: toClient(created, getBaseUrl(req)),
+    link: toClient(created, baseUrl),
   });
 }
 
@@ -125,6 +127,12 @@ async function deleteLink(req, res) {
   }
 
   await linkRef.remove();
+  try {
+    await deleteImage(id);
+  } catch (err) {
+    console.error('[delete] could not remove image:', err.message);
+  }
+
   res.json({ message: 'Link deleted.', id });
 }
 
