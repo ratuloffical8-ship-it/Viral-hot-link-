@@ -7,11 +7,12 @@ const router = express.Router();
 
 // Mounted at /v in server.js  ->  GET /v/:id
 
-function renderOgPage({ link, pageUrl, goUrl }) {
+function renderOgPage({ link, baseUrl, pageUrl, goUrl }) {
   const siteName = process.env.SITE_NAME || 'Viral Link';
   const title = escapeHtml(link.title);
   const description = escapeHtml(link.description || link.title);
-  const image = escapeHtml(link.imageUrl);
+  // Built from the current site URL, so changing APP_BASE_URL never breaks old links
+  const image = escapeHtml(`${baseUrl}/img/${link.id}.jpg`);
   const url = escapeHtml(pageUrl);
 
   const sizeTags =
@@ -34,6 +35,7 @@ function renderOgPage({ link, pageUrl, goUrl }) {
   <meta property="og:description" content="${description}">
   <meta property="og:image" content="${image}">
   <meta property="og:image:secure_url" content="${image}">
+  <meta property="og:image:type" content="image/jpeg">
   ${sizeTags}
   <meta property="og:url" content="${url}">
 
@@ -62,18 +64,19 @@ router.get(
 
     const snapshot = await ref(`links/${id}`).once('value');
     const link = snapshot.val();
-    if (!link) {
+    if (!link || !link.title) {
       throw httpError(404, 'This link does not exist or was removed.');
     }
 
     const userAgent = req.get('user-agent') || '';
     const goUrl = `/go/${id}`;
+    const baseUrl = getBaseUrl(req);
 
     // Link-preview bots (WhatsApp, Telegram, Facebook...) get the Open Graph page
     if (!userAgent || isBot(userAgent)) {
-      const pageUrl = `${getBaseUrl(req)}/v/${id}`;
+      const pageUrl = `${baseUrl}/v/${id}`;
       res.set('Cache-Control', 'public, max-age=300');
-      return res.status(200).type('html').send(renderOgPage({ link, pageUrl, goUrl }));
+      return res.status(200).type('html').send(renderOgPage({ link, baseUrl, pageUrl, goUrl }));
     }
 
     // Real visitors: count the click, then open our own Intermediate Page
