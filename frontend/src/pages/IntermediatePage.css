@@ -1,62 +1,113 @@
+/* ---------- Page: top row | card | bottom row (always fits one screen) ---------- */
 .ip-root {
+  --row-h: clamp(90px, 22vh, 200px);
+  --tile-gap: 8px;
+
   position: relative;
-  min-height: 100vh;
-  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
   overflow: hidden;
   background: #020617;
   color: #f8fafc;
 }
 
-/* ---------- Background slider ---------- */
-.ip-bg {
-  position: fixed;
-  inset: 0;
-  z-index: 0;
+@supports (height: 1dvh) {
+  .ip-root {
+    --row-h: clamp(90px, 22dvh, 200px);
+  }
 }
 
-.ip-slide {
-  position: absolute;
-  inset: 0;
+/* ---------- Scrolling rows ---------- */
+.ip-row {
+  flex: 0 0 var(--row-h);
+  height: var(--row-h);
+  padding: 6px 0;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+/* The track holds the images twice, so moving it by -50% loops with no jump */
+.ip-track {
+  display: flex;
+  gap: var(--tile-gap);
+  width: max-content;
+  height: 100%;
+  padding-right: var(--tile-gap);
+  box-sizing: border-box;
+  will-change: transform;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+.ip-track-left {
+  animation-name: ip-scroll-left;
+}
+
+.ip-track-right {
+  animation-name: ip-scroll-right;
+}
+
+/* Every image gets the same box (9:16), the whole image is always visible */
+.ip-tile {
+  flex: 0 0 auto;
+  height: 100%;
+  width: calc((var(--row-h) - 12px) * 0.5625);
+  border-radius: 10px;
+  overflow: hidden;
+  background: #0b1120;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-sizing: border-box;
+}
+
+.ip-tile img {
+  display: block;
   width: 100%;
   height: 100%;
-  object-fit: cover;
-  opacity: 0;
-  transition: opacity 1.4s ease-in-out;
-  will-change: opacity;
+  object-fit: contain;
+  -webkit-user-select: none;
+  user-select: none;
+  pointer-events: none;
 }
 
-.ip-slide.is-active {
-  opacity: 1;
+@keyframes ip-scroll-left {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-50%, 0, 0);
+  }
 }
 
-.ip-overlay {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(180deg, rgba(2, 6, 23, 0.2) 0%, rgba(2, 6, 23, 0.05) 45%, rgba(2, 6, 23, 0.35) 100%);
+@keyframes ip-scroll-right {
+  from {
+    transform: translate3d(-50%, 0, 0);
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+  }
 }
 
-/* ---------- Foreground ---------- */
+/* ---------- Middle card ---------- */
 .ip-center {
-  position: relative;
-  z-index: 1;
-  min-height: 100vh;
-  min-height: 100dvh;
+  flex: 1 1 auto;
+  min-height: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 20px 16px;
+  padding: 10px 16px;
+  overflow-y: auto;
 }
 
 .ip-card {
   width: 100%;
   max-width: 420px;
   text-align: center;
-  padding: 22px 20px 18px;
+  padding: 18px 18px 14px;
   border-radius: 22px;
-  background: rgba(15, 23, 42, 0.5);
+  background: rgba(15, 23, 42, 0.92);
   border: 1px solid rgba(255, 255, 255, 0.14);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
   animation: ip-rise 0.6s ease-out both;
 }
@@ -64,24 +115,25 @@
 .ip-cover {
   display: block;
   width: 100%;
-  max-height: 200px;
-  object-fit: cover;
+  max-height: 150px;
+  object-fit: contain;
+  background: rgba(0, 0, 0, 0.25);
   border-radius: 14px;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
 .ip-title {
   margin: 0 0 8px;
-  font-size: 22px;
+  font-size: 21px;
   line-height: 1.3;
   font-weight: 800;
   word-break: break-word;
 }
 
 .ip-desc {
-  margin: 0 0 16px;
+  margin: 0 0 12px;
   color: #cbd5e1;
-  font-size: 15px;
+  font-size: 14px;
   word-break: break-word;
 }
 
@@ -89,7 +141,7 @@
 .ip-btn {
   display: block;
   width: 100%;
-  margin: 4px 0 14px;
+  margin: 4px 0 12px;
   padding: 14px 16px;
   border: 0;
   border-radius: 12px;
@@ -116,7 +168,7 @@
 }
 
 .ip-note {
-  margin: 0 0 6px;
+  margin: 0 0 4px;
   font-size: 12px;
   line-height: 1.4;
   color: #94a3b8;
@@ -160,9 +212,10 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ip-slide,
-  .ip-card {
-    transition: opacity 0.3s;
+  .ip-track {
     animation: none;
   }
-    }
+  .ip-card {
+    animation: none;
+  }
+                   }
