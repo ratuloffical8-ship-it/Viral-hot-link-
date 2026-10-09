@@ -42,18 +42,23 @@ function getDateKey(date = new Date()) {
   }).format(date);
 }
 
-/** Build the list of GitHub raw image URLs used as intermediate page backgrounds */
+/** Background images for the intermediate page.
+ *  Default: served from this site (frontend/public/bg/1.jpg ...).
+ *  If GITHUB_USER and GITHUB_REPO are set (public repo), GitHub raw URLs are used instead. */
 function getBackgroundImages() {
-  const user = process.env.GITHUB_USER;
-  const repo = process.env.GITHUB_REPO;
-  if (!user || !repo) return [];
-
-  const branch = process.env.GITHUB_BRANCH || 'main';
-  const path = (process.env.GITHUB_IMAGES_PATH || 'images').replace(/^\/+|\/+$/g, '');
   const count = Math.min(Math.max(Number(process.env.BACKGROUND_IMAGE_COUNT) || 10, 1), 50);
   const ext = (process.env.BACKGROUND_IMAGE_EXT || 'jpg').replace(/^\./, '');
 
-  const base = `https://raw.githubusercontent.com/${user}/${repo}/${branch}${path ? `/${path}` : ''}`;
+  const user = process.env.GITHUB_USER;
+  const repo = process.env.GITHUB_REPO;
+
+  let base = '/bg';
+  if (user && repo) {
+    const branch = process.env.GITHUB_BRANCH || 'main';
+    const path = (process.env.GITHUB_IMAGES_PATH || 'images').replace(/^\/+|\/+$/g, '');
+    base = `https://raw.githubusercontent.com/${user}/${repo}/${branch}${path ? `/${path}` : ''}`;
+  }
+
   return Array.from({ length: count }, (_, i) => `${base}/${i + 1}.${ext}`);
 }
 
